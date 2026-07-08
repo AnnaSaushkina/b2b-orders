@@ -1,33 +1,40 @@
 import { type ReactNode, useState } from 'react';
 
-export interface Product {
-  id: number;
-  name: string;
-  category: string;
-  brand: string;
-  price: number;
-  characteristics: string[];
-}
-
-export interface VirtualListProps {
-  items: Product[];
+export interface VirtualListProps<T> {
+  items: T[];
   itemHeight: number;
   height: number;
-  renderItem: (item: Product, index: number) => ReactNode;
+  renderItem: (item: T, index: number) => ReactNode;
+  onEndReached?: () => void;
 }
 
-export function VirtualList({ items, itemHeight, height, renderItem }: VirtualListProps) {
+export function VirtualList<T>({
+  items,
+  itemHeight,
+  height,
+  renderItem,
+  onEndReached,
+}: VirtualListProps<T>) {
   const [scrollTop, setScrollTop] = useState(0);
-  const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - 3);
-  const visibleCount = Math.ceil(height / itemHeight);
-  const endIndex = Math.min(startIndex + visibleCount + 3, items.length);
+  const OVERSCAN = 3;
 
+  function calcWindow(scrollTop: number) {
+    const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - OVERSCAN);
+    const visibleCount = Math.ceil(height / itemHeight);
+    const endIndex = Math.min(startIndex + visibleCount + OVERSCAN, items.length);
+    return { startIndex, endIndex };
+  }
+  const { startIndex, endIndex } = calcWindow(scrollTop);
   const visibleItems = items.slice(startIndex, endIndex);
 
   return (
     <div
       onScroll={(e) => {
-        setScrollTop(e.currentTarget.scrollTop);
+        const newScrollTop = e.currentTarget.scrollTop;
+        setScrollTop(newScrollTop);
+        const { endIndex } = calcWindow(newScrollTop);
+
+        if (items.length > 0 && endIndex >= items.length) onEndReached?.();
       }}
       style={{
         height: height,
