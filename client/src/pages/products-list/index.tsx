@@ -25,6 +25,7 @@ export function Page() {
         setIsLoading(false);
       }
     }
+    load();
   }, [offset]);
 
   return (
