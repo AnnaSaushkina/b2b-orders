@@ -1,16 +1,10 @@
-import { type ReactNode, useState } from 'react';
+import { useState, useMemo, useLayoutEffect, useRef } from 'react';
+import type { VirtualListProps, ItemWithId } from './types';
+import { scrollContainerStyle, visibleWindowStyle } from './styles';
+import { productCardStyle } from '@/pages/products-list/product-card-style';
 
-export interface VirtualListProps<T> {
-  items: T[];
-  itemHeight: number;
-  height: number;
-  renderItem: (item: T, index: number) => ReactNode;
-  onEndReached?: () => void;
-}
-
-export function VirtualList<T>({
+export function VirtualList<T extends ItemWithId>({
   items,
-  itemHeight,
   height,
   renderItem,
   onEndReached,
@@ -19,36 +13,66 @@ export function VirtualList<T>({
   const OVERSCAN = 3;
 
   function calcWindow(scrollTop: number) {
-    const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - OVERSCAN);
-    const visibleCount = Math.ceil(height / itemHeight);
+    const startIndex = Math.max(0, Math.floor(scrollTop / height.item) - OVERSCAN);
+    const visibleCount = Math.ceil(height.list / height.item);
     const endIndex = Math.min(startIndex + visibleCount + OVERSCAN, items.length);
     return { startIndex, endIndex };
   }
   const { startIndex, endIndex } = calcWindow(scrollTop);
-  const visibleItems = items.slice(startIndex, endIndex);
+
+  const DOMlist = useRef(new Map());
+  // useLayoutEffect(() => console.log('DOMlist.current: ', DOMlist.current));
+
+  // const scrollWindowHeight = Array.from(DOMlist.current.values());
+
+  // console.log('дом элементы: ' + scrollWindowHeight);
+
+  const visibleItems = useMemo(() => {
+    return items.slice(startIndex, endIndex);
+  }, [scrollTop, height.item, height.list, items]);
+
+  function setScrollPosition(e: React.UIEvent<HTMLDivElement>) {
+    const newScrollTop = e.currentTarget.scrollTop;
+
+    setScrollTop(newScrollTop);
+    const { endIndex } = calcWindow(newScrollTop);
+
+    if (items.length > 0 && endIndex >= items.length) onEndReached?.();
+  }
 
   return (
     <div
       onScroll={(e) => {
-        const newScrollTop = e.currentTarget.scrollTop;
-        setScrollTop(newScrollTop);
-        const { endIndex } = calcWindow(newScrollTop);
-
-        if (items.length > 0 && endIndex >= items.length) onEndReached?.();
+        setScrollPosition(e);
       }}
-      style={{
-        height: height,
-        overflow: 'auto',
-        position: 'relative',
-      }}
+      style={{ ...scrollContainerStyle, height: height.list }}
     >
       <div
         style={{
-          height: items.length * itemHeight,
+          height: items.length * height.item,
         }}
       >
-        <div style={{ position: 'absolute', top: startIndex * itemHeight, width: '100%' }}>
-          {visibleItems.map((item, index) => renderItem(item, startIndex + index))}
+        <div
+          style={{
+            top: startIndex * height.item,
+            position: 'absolute',
+          }}
+        >
+          {visibleItems.map((item) => {
+            return (
+              <div
+                style={productCardStyle}
+                key={item.id}
+                ref={(node) => {
+                  if (node !== null) {
+                    DOMlist.current.set(item.id, node.offsetHeight);
+                  }
+                }}
+              >
+                {renderItem(item)}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

@@ -19,7 +19,10 @@ async function main() {
         category: CATEGORIES[idx % CATEGORIES.length],
         brand: BRANDS[idx % BRANDS.length],
         price: Math.floor(Math.random() * 100000) + 1000,
-        characteristics: [`Характеристика A${idx}`, `Характеристика B${idx}`],
+        characteristics: Array.from(
+          { length: (idx % 6) + 1 },
+          (_, k) => `Характеристика ${String.fromCharCode(65 + k)}${idx}`,
+        ),
       };
     });
 
