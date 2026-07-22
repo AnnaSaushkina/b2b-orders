@@ -1,0 +1,60 @@
+# Вариант 2 (полный прогон в контейнерах): PostgreSQL + Redis + API.
+# Контейнеризуем бэкенд целиком; клиент по-прежнему на хосте (`pnpm dev:client`).
+#
+# Запуск:
+#   docker compose -f docker-compose.full.yml up --build
+#
+# Файл самодостаточный (не наследует docker-compose.yml) — так проще читать и
+# защищать. Альтернатива на будущее: один файл с profiles вместо двух.
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: marven-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-marven}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-marven}
+      POSTGRES_DB: ${POSTGRES_DB:-marven}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-marven} -d ${POSTGRES_DB:-marven}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: marven-redis
+    restart: unless-stopped
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: marven-api
+    restart: unless-stopped
+    environment:
+      # Внутри compose-сети хост БД — имя сервиса `postgres`, а НЕ localhost
+      DATABASE_URL: postgresql://${POSTGRES_USER:-marven}:${POSTGRES_PASSWORD:-marven}@postgres:5432/${POSTGRES_DB:-marven}?schema=public
+      REDIS_URL: redis://redis:6379
+      PORT: 4000
+    ports:
+      - '4000:4000'
+    depends_on:
+      postgres:
+        condition: service_healthy # ждём, пока БД реально готова принимать соединения
+      redis:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:
