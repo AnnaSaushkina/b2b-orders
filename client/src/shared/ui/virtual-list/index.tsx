@@ -21,11 +21,6 @@ export function VirtualList<T extends ItemWithId>({
   const { startIndex, endIndex } = calcWindow(scrollTop);
 
   const DOMlist = useRef(new Map());
-  // useLayoutEffect(() => console.log('DOMlist.current: ', DOMlist.current));
-
-  // const scrollWindowHeight = Array.from(DOMlist.current.values());
-
-  // console.log('дом элементы: ' + scrollWindowHeight);
 
   const visibleItems = useMemo(() => {
     return items.slice(startIndex, endIndex);

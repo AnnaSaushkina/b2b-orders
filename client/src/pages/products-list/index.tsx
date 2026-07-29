@@ -14,7 +14,6 @@ export function Page() {
   });
 
   return (
-    // виртуализация
     isLoading ? (
       <p>загрузка списка...</p>
     ) : error && !data ? (

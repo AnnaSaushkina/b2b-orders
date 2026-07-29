@@ -1,44 +1,34 @@
-# Вариант 1 (основной для разработки): в контейнерах только инфраструктура —
-# PostgreSQL + Redis. API и клиент поднимаются на хосте через `pnpm dev`.
-#
-# Запуск:
-#   docker compose up -d        # поднять инфру в фоне
-#   pnpm dev                    # в отдельном терминале — клиент + сервер
-#   docker compose down         # остановить (данные сохранятся в volume)
+name: marven
 
 services:
   postgres:
-    image: postgres:18-alpine # 18 — актуальный релиз; 19 на июль-2026 ещё не вышел
-    container_name: marven-postgres
+    image: postgres:18
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-marven}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-marven}
-      POSTGRES_DB: ${POSTGRES_DB:-marven}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      PGDATA: /var/lib/postgresql/data
     ports:
-      - '5432:5432'
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pg-data:/var/lib/postgresql/data
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-marven} -d ${POSTGRES_DB:-marven}']
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
-      timeout: 5s
+      timeout: 3s
       retries: 10
 
   redis:
     image: redis:7-alpine
-    container_name: marven-redis
     restart: unless-stopped
     ports:
-      - '6379:6379'
-    volumes:
-      - redisdata:/data
+      - "${REDIS_PORT:-6379}:6379"
     healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
+      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
-      timeout: 5s
+      timeout: 3s
       retries: 10
 
 volumes:
-  pgdata:
-  redisdata:
+  pg-data:

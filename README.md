@@ -42,6 +42,7 @@
 ```bash
 # 1. переменные окружения
 cp .env.example .env
+cp server/.env.example server/.env
 
 # 2. инфраструктура (PostgreSQL + Redis) в контейнерах
 docker compose up -d
@@ -50,14 +51,19 @@ docker compose up -d
 pnpm install
 
 # 4. схема БД + тестовые данные (50k товаров)
-cd server && npx prisma db push && npx tsx prisma/seed.ts && cd ..
+cd server && npx prisma migrate deploy && npx tsx prisma/seed.ts && cd ..
 
 # 5. клиент + сервер одной командой
 pnpm dev
 ```
 
-Полностью в контейнерах (API + инфраструктура):
+Полностью в контейнерах (PostgreSQL + Redis + API):
 
 ```bash
-docker compose -f docker-compose.full.yml up --build
+docker compose -f docker-compose.yml -f docker-compose.app.yml up -d --build
 ```
+
+Базовый `docker-compose.yml` описывает только инфраструктуру, `docker-compose.app.yml`
+добавляет к ней сервис `api` — Compose сливает файлы по порядку, PostgreSQL и Redis
+не дублируются. В этом режиме API обращается к БД по имени сервиса `postgres`,
+а не по `localhost`, и стартует только после healthcheck базы.

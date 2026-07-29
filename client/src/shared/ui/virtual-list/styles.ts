@@ -7,6 +7,5 @@ export const scrollContainerStyle: CSSProperties = {
 
 export const visibleWindowStyle: CSSProperties = {
   position: 'absolute',
-  // width: '100%',
   maxWidth: 'fit-content',
 };
