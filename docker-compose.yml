@@ -1,8 +1,16 @@
+# Вариант 1 (основной для разработки): в контейнерах только инфраструктура —
+# PostgreSQL + Redis. API и клиент поднимаются на хосте через `pnpm dev`.
+#
+# Запуск:
+#   docker compose up -d        # поднять инфру в фоне
+#   pnpm dev                    # в отдельном терминале — клиент + сервер
+#   docker compose down         # остановить (данные сохранятся в volume)
+
 name: marven
 
 services:
   postgres:
-    image: postgres:18
+    image: postgres:18 # 18 — актуальный релиз; 19 на август-2026 ещё не вышел
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}

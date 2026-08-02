@@ -1,3 +1,4 @@
+import './styles.css';
 import { createRoot } from 'react-dom/client';
 import { Page } from '../pages/products-list';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

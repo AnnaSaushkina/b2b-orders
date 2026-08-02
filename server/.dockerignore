@@ -1,6 +1,8 @@
 node_modules
 dist
-coverage
-.env
 generated
+coverage
+test
 *.log
+.env
+.env.*

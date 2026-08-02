@@ -1,7 +1,39 @@
-import { useState, useMemo, useLayoutEffect, useRef } from 'react';
-import type { VirtualListProps, ItemWithId } from './types';
-import { scrollContainerStyle, visibleWindowStyle } from './styles';
-import { productCardStyle } from '@/pages/products-list/product-card-style';
+import { useEffect, useRef } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
+
+import { useVirtualizer } from '@tanstack/react-virtual';
+
+export type Height = { item: number; list: number };
+
+export type ItemWithId = { id: string | number };
+
+export type VirtualListProps<T extends ItemWithId> = {
+  items: T[];
+  height: Height;
+  renderItem: (item: T) => ReactNode;
+  onEndReached?: () => void;
+};
+
+/** Скролл-контейнер. Высота приходит пропом — задаётся ниже в разметке. */
+const scrollContainerStyle: CSSProperties = {
+  overflow: 'auto',
+  position: 'relative',
+};
+
+/**
+ * Распорка: держит полную высоту списка, чтобы полоса прокрутки была честной.
+ * position: relative — точка отсчёта для absolute у элементов.
+ */
+const spacerStyle: CSSProperties = {
+  position: 'relative',
+};
+
+/** Элемент списка. top приходит из virtualItem.start. */
+const itemStyle: CSSProperties = {
+  position: 'absolute',
+  left: 0,
+  width: '100%',
+};
 
 export function VirtualList<T extends ItemWithId>({
   items,
@@ -9,66 +41,51 @@ export function VirtualList<T extends ItemWithId>({
   renderItem,
   onEndReached,
 }: VirtualListProps<T>) {
-  const [scrollTop, setScrollTop] = useState(0);
-  const OVERSCAN = 3;
-
-  function calcWindow(scrollTop: number) {
-    const startIndex = Math.max(0, Math.floor(scrollTop / height.item) - OVERSCAN);
-    const visibleCount = Math.ceil(height.list / height.item);
-    const endIndex = Math.min(startIndex + visibleCount + OVERSCAN, items.length);
-    return { startIndex, endIndex };
-  }
-  const { startIndex, endIndex } = calcWindow(scrollTop);
-
-  const DOMlist = useRef(new Map());
-
-  const visibleItems = useMemo(() => {
-    return items.slice(startIndex, endIndex);
-  }, [scrollTop, height.item, height.list, items]);
-
-  function setScrollPosition(e: React.UIEvent<HTMLDivElement>) {
-    const newScrollTop = e.currentTarget.scrollTop;
-
-    setScrollTop(newScrollTop);
-    const { endIndex } = calcWindow(newScrollTop);
-
-    if (items.length > 0 && endIndex >= items.length) onEndReached?.();
-  }
-
+  const DOMList = useRef<HTMLDivElement>(null);
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => DOMList.current,
+    estimateSize: (index) => height.item,
+    overscan: 3,
+  });
+  const lastVisibleElement = virtualizer.getVirtualItems().at(-1)?.index;
+  useEffect(() => {
+    if (lastVisibleElement === items.length - 1) {
+      onEndReached?.();
+    }
+  }, [lastVisibleElement]);
   return (
     <div
-      onScroll={(e) => {
-        setScrollPosition(e);
+      ref={DOMList}
+      style={{
+        ...scrollContainerStyle,
+        height: height.list,
       }}
-      style={{ ...scrollContainerStyle, height: height.list }}
     >
       <div
         style={{
-          height: items.length * height.item,
+          ...spacerStyle,
+          height: virtualizer.getTotalSize(),
         }}
       >
-        <div
-          style={{
-            top: startIndex * height.item,
-            position: 'absolute',
-          }}
-        >
-          {visibleItems.map((item) => {
-            return (
-              <div
-                style={productCardStyle}
-                key={item.id}
-                ref={(node) => {
-                  if (node !== null) {
-                    DOMlist.current.set(item.id, node.offsetHeight);
-                  }
-                }}
-              >
-                {renderItem(item)}
-              </div>
-            );
-          })}
-        </div>
+        {virtualizer.getVirtualItems().map((virtualItem) => {
+          const product = items[virtualItem.index];
+          if (product === undefined) return null;
+
+          return (
+            <div
+              key={product.id}
+              ref={virtualizer.measureElement}
+              data-index={virtualItem.index}
+              style={{
+                ...itemStyle,
+                top: virtualItem.start,
+              }}
+            >
+              {renderItem(product)}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
