@@ -1,43 +1,12 @@
 import { useEffect, useRef } from 'react';
-import type { CSSProperties, ReactNode } from 'react';
-
 import { useVirtualizer } from '@tanstack/react-virtual';
-
-export type Height = { item: number; list: number };
-
-export type ItemWithId = { id: string | number };
-
-export type VirtualListProps<T extends ItemWithId> = {
-  items: T[];
-  height: Height;
-  renderItem: (item: T) => ReactNode;
-  onEndReached?: () => void;
-};
-
-/** Скролл-контейнер. Высота приходит пропом — задаётся ниже в разметке. */
-const scrollContainerStyle: CSSProperties = {
-  overflow: 'auto',
-  position: 'relative',
-};
-
-/**
- * Распорка: держит полную высоту списка, чтобы полоса прокрутки была честной.
- * position: relative — точка отсчёта для absolute у элементов.
- */
-const spacerStyle: CSSProperties = {
-  position: 'relative',
-};
-
-/** Элемент списка. top приходит из virtualItem.start. */
-const itemStyle: CSSProperties = {
-  position: 'absolute',
-  left: 0,
-  width: '100%',
-};
+import { scrollContainerStyle, spacerStyle, itemStyle } from './styles';
+import type { ItemWithId, VirtualListProps } from './types';
 
 export function VirtualList<T extends ItemWithId>({
   items,
-  height,
+  estimateItemHeight,
+  overscan = 3,
   renderItem,
   onEndReached,
 }: VirtualListProps<T>) {
@@ -45,24 +14,20 @@ export function VirtualList<T extends ItemWithId>({
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => DOMList.current,
-    estimateSize: (index) => height.item,
-    overscan: 3,
+    estimateSize: (index) => estimateItemHeight,
+   overscan,
   });
   const lastVisibleElement = virtualizer.getVirtualItems().at(-1)?.index;
   useEffect(() => {
     if (lastVisibleElement === items.length - 1) {
       onEndReached?.();
     }
-  }, [lastVisibleElement]);
+  }, [lastVisibleElement, onEndReached, items.length]);
   return (
-    <div
-      ref={DOMList}
-      style={{
-        ...scrollContainerStyle,
-        height: height.list,
-      }}
-    >
+    <div ref={DOMList} style={scrollContainerStyle}>
       <div
+        role="list"
+        aria-rowcount={items.length}
         style={{
           ...spacerStyle,
           height: virtualizer.getTotalSize(),
@@ -75,6 +40,10 @@ export function VirtualList<T extends ItemWithId>({
           return (
             <div
               key={product.id}
+              role="listitem"
+
+              aria-posinset={virtualItem.index + 1}
+              aria-setsize={items.length}
               ref={virtualizer.measureElement}
               data-index={virtualItem.index}
               style={{

@@ -3,7 +3,9 @@ const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = (env, argv) => {
-  const apiUrl = argv.mode === 'production' ? '/b2b-orders/api' : 'http://localhost:4000';
+  // прод отдаётся с корня собственного поддомена (b2b.frontbench.tech),
+  // поэтому и API, и статика живут от корня — без префикса пути
+  const apiUrl = argv.mode === 'production' ? '/api' : 'http://localhost:4000';
 
   return {
     entry: './src/app/index.tsx',
@@ -12,7 +14,7 @@ module.exports = (env, argv) => {
       // хэш содержимого в имени: браузер перезапрашивает файл только когда он реально изменился.
       // без этого main.js всегда одноимённый и залипает в кэше после деплоя
       filename: argv.mode === 'production' ? '[name].[contenthash:8].js' : '[name].js',
-      publicPath: argv.mode === 'production' ? '/b2b-orders/' : '/',
+      publicPath: '/',
       clean: true,
     },
     resolve: {

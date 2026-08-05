@@ -1,5 +1,5 @@
 # Вариант 1 (основной для разработки): в контейнерах только инфраструктура —
-# PostgreSQL + Redis. API и клиент поднимаются на хосте через `pnpm dev`.
+# PostgreSQL. API и клиент поднимаются на хосте через `pnpm dev`.
 #
 # Запуск:
 #   docker compose up -d        # поднять инфру в фоне
@@ -23,17 +23,6 @@ services:
       - pg-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
-  redis:
-    image: redis:7-alpine
-    restart: unless-stopped
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 3s
       retries: 10

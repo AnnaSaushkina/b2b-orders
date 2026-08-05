@@ -1,7 +1,6 @@
 import type { Product } from '@/entities/product/model/types';
+import { ProductThumb } from './product-thumb';
 
-// price в БД хранится в КОПЕЙКАХ целым Int (см. seed.ts): деньги никогда не живут во float,
-// иначе 0.1 + 0.2 !== 0.3 (IEEE 754). Деление на 100 — только здесь, на выводе.
 const priceFormat = new Intl.NumberFormat('ru-RU', {
   style: 'currency',
   currency: 'RUB',
@@ -12,36 +11,17 @@ function formatKopecks(kopecks: number): string {
   return priceFormat.format(kopecks / 100);
 }
 
-/**
- * Картинка-заглушка: picsum отдаёт стабильное изображение по seed,
- * поэтому у товара с одним и тем же id она не меняется между рендерами.
- * Реальные изображения появятся, когда в схему Product добавится imageUrl.
- */
-function productImageUrl(id: Product['id']): string {
-  return `https://picsum.photos/seed/product-${id}/192/192`;
-}
-
 export function ProductCard({ product }: { product: Product }) {
   return (
-    // зазор задан ВНУТРИ измеряемой коробки: measureElement меряет через
-    // getBoundingClientRect, а он margin не учитывает — внешний отступ дал бы наложение
+
     <div className="pb-3">
       <article
         aria-label={product.name}
         className="overflow-hidden rounded-xl border border-zinc-200 bg-white p-4 shadow-sm"
       >
-        {/*
-          float, а не flex: при flex характеристики уезжают отдельным рядом под фото
-          и оставляют пустоту. С float текст и характеристики обтекают картинку
-          и заполняют место под ней.
-        */}
-        <img
-          src={productImageUrl(product.id)}
-          alt=""
-          loading="lazy"
-          width={144}
-          height={144}
-          className="float-left mr-4 mb-2 h-36 w-36 rounded-lg bg-zinc-100 object-cover"
+        <ProductThumb
+          category={product.category}
+          className="float-left mr-4 mb-2 h-36 w-36 rounded-lg"
         />
 
         <h3 className="text-base leading-snug font-semibold text-zinc-900">{product.name}</h3>

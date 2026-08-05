@@ -2,14 +2,6 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-/**
- * Ассортимент нейтрального B2B-дистрибьютора: узнаваемая номенклатура,
- * но без привязки к реальному заказчику. Бренды вымышленные.
- *
- * Характеристики намеренно несут коммерческую фактуру (артикул, мин. партия,
- * НДС, скидочный тир, отсрочка платежа) — это то, вокруг чего строятся
- * бизнес-правила заказа и факторинговые сценарии.
- */
 const ASSORTMENT: {
   category: string;
   brands: string[];
@@ -108,16 +100,28 @@ const ASSORTMENT: {
   },
 ];
 
+const VARIANTS: Record<string, string[]> = {
+  "Бытовая химия": ["0,5 л", "1 л", "5 л", "10 л", "канистра 20 л", "саше 30 шт"],
+  Упаковка: ["рулон 100 м", "рулон 200 м", "пачка 50 шт", "пачка 100 шт", "короб 500 шт"],
+  "Продукты питания": ["шоу-бокс 12 шт", "короб 24 шт", "короб 30 шт", "мешок 25 кг", "паллета"],
+  Электрика: ["бухта 50 м", "бухта 100 м", "блистер 10 шт", "коробка 50 шт", "поштучно"],
+  Инструменты: ["базовый", "с кейсом", "с 2 АКБ", "промо-набор", "профсерия"],
+  Спецодежда: ["р. 44-46", "р. 48-50", "р. 52-54", "р. 56-58", "р. 60-62"],
+};
+
+const SUBTYPES: Record<string, string[]> = {
+  "Бытовая химия": ["без запаха", "лимон", "морская свежесть", "хвоя", "для чувствительной кожи", "концентрат", "профлиния", "эко"],
+  Упаковка: ["стандарт", "усиленная", "с логотипом", "перфорированная", "цветная", "био", "термостойкая", "антистатик"],
+  "Продукты питания": ["классический", "острый", "с зеленью", "премиум", "эконом", "без сахара", "фермерский", "детский"],
+  Электрика: ["медный", "алюминиевый", "негорючий", "морозостойкий", "с УЗО", "влагозащищённый", "для наружных работ", "промышленный"],
+  Инструменты: ["бытовой", "полупрофессиональный", "профессиональный", "с реверсом", "с подсветкой", "бесщёточный", "компакт", "усиленный"],
+  Спецодежда: ["летний", "зимний", "демисезонный", "с СОП", "огнестойкий", "антистатический", "водоотталкивающий", "усиленный"],
+};
+
 const PAYMENT_TERMS = ['без отсрочки', 'отсрочка 14 дней', 'отсрочка 30 дней', 'отсрочка 45 дней'];
 
-/**
- * Товарные характеристики своего набора для каждой категории: у бытовой химии
- * объём и класс опасности, у электрики — напряжение и IP, у спецодежды — размерный ряд.
- * Значения выбираются детерминированно по индексу, поэтому у соседних позиций
- * они разные, а у одной и той же позиции стабильны между пересевами.
- */
 const SPECS: Record<string, { label: string; values: string[] }[]> = {
-  // Габариты и объём намеренно НЕ дублируются: они уже стоят в названии позиции
+
   'Бытовая химия': [
     { label: 'Класс опасности', values: ['4 (малоопасное)', '3 (умеренно опасное)'] },
     { label: 'Срок годности', values: ['12 мес.', '18 мес.', '24 мес.', '36 мес.'] },
@@ -162,15 +166,10 @@ const SPECS: Record<string, { label: string; values: string[] }[]> = {
   ],
 };
 
-/** Артикул вида MRV-04-1287: категория + порядковый номер. Стабилен для одного и того же индекса. */
 function article(categoryIndex: number, index: number): string {
   return `MRV-${String(categoryIndex + 1).padStart(2, '0')}-${String(index).padStart(5, '0')}`;
 }
 
-/**
- * Характеристики разной длины — это одновременно и коммерческая фактура,
- * и стенд для проверки динамической высоты карточек в виртуальном списке.
- */
 function buildCharacteristics(params: {
   index: number;
   categoryIndex: number;
@@ -183,15 +182,12 @@ function buildCharacteristics(params: {
   const discountFrom = minBatch * 10;
   const discountPercent = [3, 5, 7, 10][index % 4]!;
 
-  // товарные характеристики: свой набор на категорию, значения разведены по индексу,
-  // чтобы у соседних позиций совпадений было мало
   const specs = SPECS[category] ?? [];
   const productSpecs = specs.map((spec, specIndex) => {
     const value = spec.values[(index * (specIndex + 3) + specIndex) % spec.values.length]!;
     return `${spec.label}: ${value}`;
   });
 
-  // коммерческие условия: то, вокруг чего строятся бизнес-правила заказа
   const commercial = [
     `Артикул: ${article(categoryIndex, index)}`,
     `Мин. партия: ${minBatch} ${units}`,
@@ -201,7 +197,6 @@ function buildCharacteristics(params: {
     'НДС 20% включён',
   ];
 
-  // от 2 до всех товарных характеристик — отсюда разброс высоты карточек
   const specCount = 2 + (index % (productSpecs.length - 1 || 1));
 
   return productSpecs.slice(0, specCount).concat(commercial.slice(0, 3 + (index % 4)));
@@ -219,14 +214,29 @@ async function main() {
 
       const group = ASSORTMENT[idx % ASSORTMENT.length]!;
       const categoryIndex = idx % ASSORTMENT.length;
-      const itemName = group.items[idx % group.items.length]!;
-      const brand = group.brands[idx % group.brands.length]!;
 
-      // цена в копейках: от 150 ₽ до ~12 000 ₽ за единицу
+      const k = Math.floor(idx / ASSORTMENT.length);
+
+      const subtypes = SUBTYPES[group.category] ?? ["стандарт"];
+      const variants = VARIANTS[group.category] ?? ["стандарт"];
+
+      const itemName = group.items[k % group.items.length]!;
+      const subtype = subtypes[Math.floor(k / group.items.length) % subtypes.length]!;
+      const variant =
+        variants[Math.floor(k / (group.items.length * subtypes.length)) % variants.length]!;
+      const brand =
+        group.brands[
+          Math.floor(k / (group.items.length * subtypes.length * variants.length)) %
+            group.brands.length
+        ]!;
+
+      const sku = article(categoryIndex, idx);
+
       const price = 15000 + ((idx * 7919) % 1185000);
 
       return {
-        name: `${itemName}, ${brand}`,
+
+        name: `${itemName}, ${subtype}, ${variant} — ${brand} · ${sku}`,
         category: group.category,
         brand,
         price,
